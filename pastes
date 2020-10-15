@@ -1,0 +1,73 @@
+#!/usr/bin/env ruby
+
+require "json"
+require "pp"
+
+help_text = "Usage: pastes [ARG] [ARG] [ARG]
+  -l, --list      list pastes
+  -h, --help      access help
+  -a, --add       add a paste with the desired name and text to the config
+  -r, --remove    remove the selected paste from the the config
+  -g, --generate  generate a new config file"
+
+conf_location = File.expand_path("~/.pastes.conf")
+
+def edit_config(file_path, new_data)
+  conf = File.open(file_path, "w")
+  new_conf = JSON.pretty_generate(new_data)
+  conf << new_conf
+  conf.close
+end
+
+def read_config(file_path)
+  conf_file = File.open(file_path, "r")
+  conf = conf_file.read
+  data = JSON.parse(conf)
+  conf_file.close
+  return data
+end
+
+if ARGV[0] == "-g" || ARGV[0] == "--generate"
+  if File.exist?(conf_location)
+    print "Existing config file found, are you sure you want to overwrite it? [y/n] "
+    choice = STDIN.gets.chomp.downcase
+    if choice == "y"
+      edit_config(conf_location, Hash.new)
+    elsif choice == "n"
+      puts "Config generation cancelled."
+    else
+      exit(1)
+    end
+  else
+    edit_config(conf_location, Hash.new)
+  end
+else
+  if File.exist?(conf_location)
+    pastes = read_config(conf_location)
+    if ARGV[0] == "-l" || ARGV[0] == "--list"
+      pastes.each do |k, v|
+        puts "#{k}: #{v}"
+      end
+    elsif ARGV[0] == "-a" || ARGV[0] == "--add"
+      pastes[ARGV[1]] = ARGV[2]
+      edit_config(conf_location, pastes)
+      puts "Paste \"#{ARGV[1]}\" added with text \"#{ARGV[2]}\"."
+    elsif ARGV[0] == "-r" || ARGV[0] == "--remove"
+      pastes.delete(ARGV[1])
+      edit_config(conf_location, pastes)
+      puts "Paste \"#{ARGV[1]}\" removed."
+    elsif ARGV[0] == "-h" || ARGV[0] == "--help"
+      puts help_text
+    else
+      if pastes[ARGV[0]]
+        choice = pastes[ARGV[0]]
+        system "printf \"#{choice}\" | xsel -b"
+        puts "#{choice} copied to clipboard"
+      else
+        puts "No paste matching \"#{ARGV[0]}\" found."
+      end
+    end
+  else
+    puts "Config file not found, please run with -g or --generate to make a config."
+  end
+end

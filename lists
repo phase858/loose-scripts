@@ -1,0 +1,175 @@
+#!/usr/bin/env ruby
+
+require "json"
+require "pp"
+
+help_text = "Usage: lists [list name or arg] arg
+  -g, --generate generates a new config
+  -al, --add-list        adds a new list
+  -rl, --remove-list     removes the specified list
+  -ll, --list-lists      list all list names
+  -lr, --list-recursive  list all lists show content
+  -lc, --list-contents             list a specified lists contents     
+  -h, --help             view this help text
+any other first arugments are taken as a list name to do actions on
+actions are:
+  add: adds the specified entry to the list
+    lists todo add \"get mail\"
+  remove: removes the specified entry from the list
+    lists todo remove grocery
+  check: checks the specified entry
+    lists todo check \"get mail\"
+  uncheck: unchecks the specified entry
+    lists todo uncheck \"ship that package\""
+
+conf_location = File.expand_path("~/.lists.conf")
+
+def choice(message)
+  print "#{message} [y/n] "
+  choice = STDIN.gets.chomp.downcase
+  if choice == "y"
+    return true
+  else
+    return false
+  end
+end
+
+def list_has_entry(list, entry)
+  if list[entry] == false || list[entry] == true || !list[entry] == nil
+    return true
+  else
+    return false
+  end
+end
+
+def edit_config(file_path, new_data)
+  conf = File.open(file_path, "w")
+  new_conf = JSON.pretty_generate(new_data)
+  conf << new_conf
+  conf.close
+end
+
+def read_config(file_path)
+  conf_file = File.open(file_path, "r")
+  conf = conf_file.read
+  data = JSON.parse(conf)
+  conf_file.close
+  return data
+end
+
+def print_list(list, spacing = 0)
+  indent = Array.new(spacing) { " " }.join("")
+  list.sort.to_h.each do |k, v|
+    if v
+      puts "#{indent}☑ #{k}"
+    else
+      puts "#{indent}☐ #{k}"
+    end
+  end
+end
+
+if ARGV[0] == "-g" || ARGV[0] == "--generate"
+  if File.exist?(conf_location)
+    if choice("Existing config file found, are you sure you want to overwrite it?")
+      edit_config(conf_location, Hash.new)
+    else
+      exit(1)
+    end
+  else
+    edit_config(conf_location, Hash.new)
+  end
+else
+  if File.exist?(conf_location)
+    lists = read_config(conf_location)
+    mode = ARGV[0]
+    list = ARGV[1]
+    if mode == "-al" || mode == "--add-list"
+      if lists.key?(list)
+        if choice("List exists, overwrite?")
+          lists[ARGV[1]] = Hash.new
+          edit_config(conf_location, lists)
+          puts "List \"#{list}\" added."
+        else
+          puts "Cancelled Adding list."
+        end
+      else
+        lists[ARGV[1]] = Hash.new
+        edit_config(conf_location, lists)
+        puts "List \"#{list}\" added."
+      end
+    elsif mode == "-h" || mode == "--help"
+      puts help_text
+    elsif mode == "-rl" || mode == "--remove-list"
+      if lists[list]
+        lists.delete(ARGV[1])
+        edit_config(conf_location, lists)
+        puts "List \"#{list}\" removed."
+      else
+        puts "List \"#{list}\" does not exist."
+      end
+    elsif mode == "-ll" || mode == "--list-lists"
+      lists.sort.to_h.each do |k, v|
+        puts k
+      end
+    elsif mode == "-lc" || mode == "--list-contents"
+      if lists[list]
+        print_list(lists[list])
+      else
+        puts "List \"#{list}\" does not exist."
+      end
+    elsif mode == "-lr" || mode == "--list-recursive"
+      lists.sort.to_h.each do |k, v|
+        puts "#{k}:"
+        print_list(v, 2)
+      end
+    elsif lists[ARGV[0]]
+      list = lists[ARGV[0]]
+      target = ARGV[0]
+      operation = ARGV[1]
+      entry = ARGV[2]
+      if operation == "add"
+        if list_has_entry(list, entry)
+          if choice("Entry already exists, overwrite?")
+            list[entry] = false
+            edit_config(conf_location, lists)
+            puts "Added entry \"#{entry}\" to list \"#{target}\"."
+          end
+        else
+          list[entry] = false
+          edit_config(conf_location, lists)
+          puts "Added entry \"#{entry}\" to list \"#{target}\"."
+        end
+      elsif operation == "check"
+        if list_has_entry(list, entry)
+          list[entry] = true
+          edit_config(conf_location, lists)
+          puts "Entry \"#{entry}\" on list \"#{target}\" checked."
+        else
+          puts "Entry \"#{entry}\" does not exist on list \"#{target}\""
+        end
+      elsif operation == "uncheck"
+        if list_has_entry(list, entry)
+          list[entry] = true
+          edit_config(conf_location, lists)
+          puts "Entry \"#{entry}\" on list \"#{target}\" unchecked."
+        else
+          puts "Entry \"#{entry}\" does not exist on list \"#{target}\""
+        end
+      elsif operation == "remove"
+        if list_has_entry(list, entry)
+          list.delete(entry)
+          edit_config(conf_location, lists)
+          puts "Entry \"#{entry}\" removed from list \"#{target}\""
+        else
+          puts "Entry \"#{entry}\" does not exist on list \"#{target}\""
+        end
+      else
+        puts "operation \"#{operation}\" not a valid operation"
+      end
+    else
+      puts "List \"#{mode}\" not found."
+    end
+  else
+    puts "Config file not found, please run with -g or --generate to make a config."
+  end
+end
