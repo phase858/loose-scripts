@@ -9,7 +9,7 @@ help_text = "Usage: lists [list name or arg] arg
   -rl, --remove-list     removes the specified list
   -ll, --list-lists      list all list names
   -lr, --list-recursive  list all lists show content
-  -lc, --list-contents             list a specified lists contents     
+  -lc, --list-contents   list a specified lists contents     
   -h, --help             view this help text
 any other first arugments are taken as a list name to do actions on
 actions are:
