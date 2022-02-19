@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+require 'shellwords'
+input = ARGV
+input << input.concat(Shellwords.split(STDIN.gets)) unless STDIN.tty?
+system "printf \"#{input[0]}\" | xsel -b"

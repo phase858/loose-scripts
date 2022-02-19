@@ -1,0 +1,360 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'base64'
+require 'English'
+require 'radix'
+
+module Decode
+  @encodings = {
+    # encoding_name => [decode_command_method, encode_command_or_method, is_it_an_external_command]
+    'rot13' => ['rot13', 'rot13', false],
+    'binary' => ['binary_decode', 'binary_encode', false],
+    'base2' => ['binary_decode', 'binary_encode', false],
+    'trinary' => ['trinary_decode', 'trinary_encode', false],
+    'base3' => ['trinary_decode', 'trinary_encode', false],
+    'octal' => ['octal_decode', 'octal_encode', false],
+    'base8' => ['octal_decode', 'octal_encode', false],
+    'hexadecimal' => ['hex_decode', 'hex_encode', false],
+    'hex' => ['hex_decode', 'hex_encode', false],
+    'base26' => ['base26_decode', 'base26_encode', false],
+    'base36' => ['base36_decode', 'base36_encode', false],
+    'base16' => ['hex_decode', 'hex_encode', false],
+    'base32' => ['base32 -d', 'base32', true],
+    'base64' => ['base64_decode', 'base64_encode', false],
+    'ascii85' => ['ascii85 -d', 'ascii85', true],
+    'base85' => ['ascii85 -d', 'ascii85', true],
+    'dots' => ['dots_decode', 'dots_encode', false],
+    'circles' => ['circles_decode', 'circles_encode', false],
+    'base91' => ['base91 -d', 'base91', true],
+    'base52' => ['base52_decode', 'base52_encode', false],
+    'base65536' => ['base65536 -d', 'base65536', true],
+    'decimal' => ['decimal_decode', 'decimal_encode', false],
+    'base10' => ['decimal_decode', 'decimal_encode', false]
+  }
+
+  def self.decimal_decode(data)
+    binary = data.split(' ')
+    characters = []
+    binary.each do |c|
+      characters << c.to_i(10).chr
+    end
+    characters.join('')
+  rescue StandardError
+    ''
+  end
+
+  def self.decimal_encode(data)
+    binary = []
+    data.each_char do |c|
+      binary << '%03d' % c.ord.to_s(10)
+    end
+    binary.join(' ')
+  rescue StandardError
+    ''
+  end
+
+  def self.rot13(data)
+    data.tr('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
+            'nopqrstuvwxyzabcdefghijklmNOPQRSTUVWXYZABCDEFGHIJKLM')
+  end
+
+  def self.binary_decode(data)
+    binary = data.split(' ')
+    characters = []
+    binary.each do |c|
+      characters << c.to_i(2).chr
+    end
+    characters.join('')
+  rescue StandardError
+    ''
+  end
+
+  def self.binary_encode(data)
+    binary = []
+    data.each_char do |c|
+      binary << c.ord.to_s(2)
+    end
+    binary.join(' ')
+  rescue StandardError
+    ''
+  end
+
+  def self.trinary_decode(data)
+    binary = data.split(' ')
+    characters = []
+    binary.each do |c|
+      characters << c.to_i(3).chr
+    end
+    characters.join('')
+  rescue StandardError
+    ''
+  end
+
+  def self.trinary_encode(data)
+    binary = []
+    data.each_char do |c|
+      binary << c.ord.to_s(3)
+    end
+    binary.join(' ')
+  rescue StandardError
+    ''
+  end
+
+  def self.octal_decode(data)
+    binary = data.split(' ')
+    characters = []
+    binary.each do |c|
+      characters << c.to_i(8).chr
+    end
+    characters.join('')
+  rescue StandardError
+    ''
+  end
+
+  def self.octal_encode(data)
+    binary = []
+    data.each_char do |c|
+      binary << c.ord.to_s(8)
+    end
+    binary.join(' ')
+  rescue StandardError
+    ''
+  end
+
+  def self.hex_decode(data)
+    binary = data.split(' ')
+    characters = []
+    binary.each do |c|
+      characters << c.to_i(16).chr
+    end
+    characters.join('')
+  rescue StandardError
+    ''
+  end
+
+  def self.hex_encode(data)
+    binary = []
+    data.each_char do |c|
+      binary << c.ord.to_s(16)
+    end
+    binary.join(' ')
+  rescue StandardError
+    ''
+  end
+
+  def self.base36_decode(data)
+    binary = data.split(' ')
+    characters = []
+    binary.each do |c|
+      characters << c.to_i(36).chr
+    end
+    characters.join('')
+  rescue StandardError
+    ''
+  end
+
+  def self.base36_encode(data)
+    binary = []
+    data.each_char do |c|
+      binary << c.ord.to_s(36)
+    end
+    binary.join(' ')
+  rescue StandardError
+    ''
+  end
+
+  def self.base26_decode(data)
+    charset = ('a'..'z').to_a
+    begin
+      binary = data.split(' ')
+      characters = []
+      binary.each do |c|
+        characters << c.b(charset).to_i.chr
+      end
+      characters.join('')
+    rescue StandardError
+      ''
+    end
+  end
+
+  def self.base26_encode(data)
+    charset = ('a'..'z').to_a
+    begin
+      binary = []
+      data.each_char do |c|
+        binary << c.ord.b(10).to_s(charset)
+      end
+      binary.join(' ')
+    rescue StandardError
+      ''
+    end
+  end
+
+  def self.dots_decode(data)
+    charset = '•∙˙⚫․·ᐧᐝ・⸳ 𝅕݁܁ 𝅕ꔷ ۬ ֺ·𐤟﮳ॱ𝅓ٜ'.chars
+    begin
+      binary = data.split(' ')
+      characters = []
+      binary.each do |c|
+        characters << c.b(charset).to_i.chr
+      end
+      characters.join('')
+    rescue StandardError
+      ''
+    end
+  end
+
+  def self.dots_encode(data)
+    charset = '•∙˙⚫․·ᐧᐝ・⸳ 𝅕݁܁ 𝅕ꔷ ۬ ֺ·𐤟﮳ॱ𝅓ٜ'.chars
+    begin
+      binary = []
+      data.each_char do |c|
+        binary << c.ord.b(10).to_s(charset)
+      end
+      binary.join(' ')
+    rescue StandardError
+      ''
+    end
+  end
+
+  def self.circles_decode(data)
+    charset = '◯○OΟ❍Оⵔ𝖮Օoᴼ⬯⬭⬮⬬'.chars
+    begin
+      binary = data.split(' ')
+      characters = []
+      binary.each do |c|
+        characters << c.b(charset).to_i.chr
+      end
+      characters.join('')
+    rescue StandardError
+      ''
+    end
+  end
+
+  def self.circles_encode(data)
+    charset = '◯○OΟ❍Оⵔ𝖮Օoᴼ⬯⬭⬮⬬'.chars
+    begin
+      binary = []
+      data.each_char do |c|
+        binary << c.ord.b(10).to_s(charset)
+      end
+      binary.join(' ')
+    rescue StandardError
+      ''
+    end
+  end
+
+  def self.base52_decode(data)
+    charset = ('a'..'z').to_a + ('A'..'Z').to_a
+    begin
+      binary = data.split(' ')
+      characters = []
+      binary.each do |c|
+        characters << c.b(charset).to_i.chr
+      end
+      characters.join('')
+    rescue StandardError
+      ''
+    end
+  end
+
+  def self.base52_encode(data)
+    charset = ('a'..'z').to_a + ('A'..'Z').to_a
+    begin
+      binary = []
+      data.each_char do |c|
+        binary << c.ord.b(10).to_s(charset)
+      end
+      binary.join(' ')
+    rescue StandardError
+      ''
+    end
+  end
+
+  def self.base64_decode(data)
+    Base64.decode64(data)
+  end
+
+  def self.base64_encode(data)
+    Base64.encode64(data)
+  end
+
+  def self.run_command(name, data)
+    result = `echo \'#{data}\' | #{name} 2>&1`
+    return result if $CHILD_STATUS == 0
+  end
+
+  def self.decode(encoding, data)
+    if @encodings.key? encoding
+      encoding_method = @encodings[encoding]
+      if encoding_method[2]
+        result = run_command(encoding_method[0], data)
+        if result
+          result.force_encoding('UTF-8')
+        else
+          ''
+        end
+      elsif encoding_method
+        Decode.send(encoding_method[0], data).force_encoding('UTF-8')
+      else
+        'decoding error'
+      end
+    else
+      'decoding format not supported'
+    end
+  end
+
+  def self.encode(encoding, data)
+    if @encodings.key? encoding
+      encoding_method = @encodings[encoding]
+      if encoding_method[2]
+        result = run_command(encoding_method[1], data)
+        if result
+          result.force_encoding('UTF-8')
+        else
+          ''
+        end
+      elsif encoding_method
+        Decode.send(encoding_method[1], data).force_encoding('UTF-8')
+      else
+        'encoding error'
+      end
+    else
+      'encoding format not supported'
+    end
+  end
+
+  def self.scan(data)
+    encodings = {}
+    results = []
+    @encodings.each do |encoding, command|
+      encodings[encoding] = command[0] unless encodings.value? command[0]
+    end
+    encodings.each_key do |encoding|
+      results << "#{encoding}:\n#{decode(encoding, data).gsub("\n", '')}"
+    end
+    "#{results.join("\n\n").gsub("\n\n\n", "\n\n")}\n"
+  end
+
+  def self.process(arg0, arg1, arg2)
+    case arg0
+    when 'scan'
+      scan arg1
+    when 'decode'
+      decode(arg1, arg2)
+    when 'dec'
+      decode(arg1, arg2)
+    when 'encode'
+      encode(arg1, arg2)
+    when 'enc'
+      encode(arg1, arg2)
+    else
+      'mode not supported'
+    end
+  end
+
+  inputs = ARGV
+  inputs << $stdin.gets unless $stdin.tty?
+  puts process(inputs[0], inputs[1], inputs[2])
+end

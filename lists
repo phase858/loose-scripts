@@ -1,7 +1,19 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
 
-require "json"
-require "pp"
+require 'json'
+require 'pp'
+require 'shellwords'
+
+input = []
+piped = false
+
+if $stdin.tty?
+  input = ARGV
+else
+  piped = true
+  input = ARGV.concat($stdin.gets.shellsplit)
+end
 
 help_text = "Usage: lists [list name or arg] arg
   -g, --generate generates a new config
@@ -9,7 +21,7 @@ help_text = "Usage: lists [list name or arg] arg
   -rl, --remove-list     removes the specified list
   -ll, --list-lists      list all list names
   -lr, --list-recursive  list all lists show content
-  -lc, --list-contents   list a specified lists contents     
+  -lc, --list-contents   list a specified lists contents
   -h, --help             view this help text
 any other first arugments are taken as a list name to do actions on
 actions are:
@@ -22,43 +34,94 @@ actions are:
   uncheck: unchecks the specified entry
     lists todo uncheck \"ship that package\""
 
-conf_location = File.expand_path("~/.lists.conf")
+conf_location = File.expand_path('~/.lists.conf')
 
-def choice(message)
-  print "#{message} [y/n] "
-  choice = STDIN.gets.chomp.downcase
-  if choice == "y"
-    return true
+def add_entries(list_name, list, entries)
+  entries.each do |entry|
+    if list_has_entry(list, entry)
+      if choice(piped, 'Entry already exists, overwrite?')
+        list[entry] = false
+        puts "Added entry \"#{entry}\" to list \"#{list_name}\"."
+      end
+    else
+      list[entry] = false
+      puts "Added entry \"#{entry}\" to list \"#{list_name}\"."
+    end
+  end
+end
+
+def check_entries(list_name, list, entries)
+  entries.each do |entry|
+    if list_has_entry(list, entry)
+      if list_has_entry(list, entry)
+        list[entry] = true
+        puts "Entry \"#{entry}\" on list \"#{list_name}\" checked."
+      else
+        puts "Entry \"#{entry}\" does not exist on list \"#{list_name}\""
+      end
+    end
+  end
+end
+
+def remove_entries(list_name, list, entries)
+  entries.each do |entry|
+    if list_has_entry(list, entry)
+      list.delete(entry)
+      puts "Entry \"#{entry}\" removed from list \"#{list_name}\""
+    else
+      puts "Entry \"#{entry}\" does not exist on list \"#{list_name}\""
+    end
+  end
+end
+
+def uncheck_entries(list_name, list, entries)
+  entries.each do |entry|
+    if list_has_entry(list, entry)
+      if list_has_entry(list, entry)
+        list[entry] = false
+        puts "Entry \"#{entry}\" on list \"#{list_name}\" unchecked."
+      else
+        puts "Entry \"#{entry}\" does not exist on list \"#{list_name}\""
+      end
+    end
+  end
+end
+
+def choice(piped, message)
+  if piped
+    true
   else
-    return false
+    print "#{message} [y/n] "
+    choice = $stdin.gets.chomp.downcase
+    choice == 'y'
   end
 end
 
 def list_has_entry(list, entry)
-  if list[entry] == false || list[entry] == true || !list[entry] == nil
-    return true
+  if list[entry] == false || list[entry] == true || !list[entry].nil?
+    true
   else
-    return false
+    false
   end
 end
 
 def edit_config(file_path, new_data)
-  conf = File.open(file_path, "w")
+  conf = File.open(file_path, 'w')
   new_conf = JSON.pretty_generate(new_data)
   conf << new_conf
   conf.close
 end
 
 def read_config(file_path)
-  conf_file = File.open(file_path, "r")
+  conf_file = File.open(file_path, 'r')
   conf = conf_file.read
   data = JSON.parse(conf)
   conf_file.close
-  return data
+  data
 end
 
 def print_list(list, spacing = 0)
-  indent = Array.new(spacing) { " " }.join("")
+  indent = Array.new(spacing) { ' ' }.join('')
   list.sort.to_h.each do |k, v|
     if v
       puts "#{indent}☑ #{k}"
@@ -68,108 +131,83 @@ def print_list(list, spacing = 0)
   end
 end
 
-if ARGV[0] == "-g" || ARGV[0] == "--generate"
+if input[0] == '-g' || input[0] == '--generate'
   if File.exist?(conf_location)
-    if choice("Existing config file found, are you sure you want to overwrite it?")
-      edit_config(conf_location, Hash.new)
+    if choice(piped, 'Existing config file found, are you sure you want to overwrite it?')
+      edit_config(conf_location, {})
     else
       exit(1)
     end
   else
-    edit_config(conf_location, Hash.new)
+    edit_config(conf_location, {})
   end
-else
-  if File.exist?(conf_location)
-    lists = read_config(conf_location)
-    mode = ARGV[0]
-    list = ARGV[1]
-    if mode == "-al" || mode == "--add-list"
-      if lists.key?(list)
-        if choice("List exists, overwrite?")
-          lists[ARGV[1]] = Hash.new
-          edit_config(conf_location, lists)
-          puts "List \"#{list}\" added."
-        else
-          puts "Cancelled Adding list."
-        end
-      else
-        lists[ARGV[1]] = Hash.new
+elsif File.exist?(conf_location)
+  lists = read_config(conf_location)
+  mode = input[0]
+  list = input[1]
+  if ['-al', '--add-list'].include?(mode)
+    if lists.key?(list)
+      if choice(piped, 'List exists, overwrite?')
+        lists[input[1]] = {}
         edit_config(conf_location, lists)
         puts "List \"#{list}\" added."
-      end
-    elsif mode == "-h" || mode == "--help"
-      puts help_text
-    elsif mode == "-rl" || mode == "--remove-list"
-      if lists[list]
-        lists.delete(ARGV[1])
-        edit_config(conf_location, lists)
-        puts "List \"#{list}\" removed."
       else
-        puts "List \"#{list}\" does not exist."
-      end
-    elsif mode == "-ll" || mode == "--list-lists"
-      lists.sort.to_h.each do |k, v|
-        puts k
-      end
-    elsif mode == "-lc" || mode == "--list-contents"
-      if lists[list]
-        print_list(lists[list])
-      else
-        puts "List \"#{list}\" does not exist."
-      end
-    elsif mode == "-lr" || mode == "--list-recursive"
-      lists.sort.to_h.each do |k, v|
-        puts "#{k}:"
-        print_list(v, 2)
-      end
-    elsif lists[ARGV[0]]
-      list = lists[ARGV[0]]
-      target = ARGV[0]
-      operation = ARGV[1]
-      entry = ARGV[2]
-      if operation == "add"
-        if list_has_entry(list, entry)
-          if choice("Entry already exists, overwrite?")
-            list[entry] = false
-            edit_config(conf_location, lists)
-            puts "Added entry \"#{entry}\" to list \"#{target}\"."
-          end
-        else
-          list[entry] = false
-          edit_config(conf_location, lists)
-          puts "Added entry \"#{entry}\" to list \"#{target}\"."
-        end
-      elsif operation == "check"
-        if list_has_entry(list, entry)
-          list[entry] = true
-          edit_config(conf_location, lists)
-          puts "Entry \"#{entry}\" on list \"#{target}\" checked."
-        else
-          puts "Entry \"#{entry}\" does not exist on list \"#{target}\""
-        end
-      elsif operation == "uncheck"
-        if list_has_entry(list, entry)
-          list[entry] = true
-          edit_config(conf_location, lists)
-          puts "Entry \"#{entry}\" on list \"#{target}\" unchecked."
-        else
-          puts "Entry \"#{entry}\" does not exist on list \"#{target}\""
-        end
-      elsif operation == "remove"
-        if list_has_entry(list, entry)
-          list.delete(entry)
-          edit_config(conf_location, lists)
-          puts "Entry \"#{entry}\" removed from list \"#{target}\""
-        else
-          puts "Entry \"#{entry}\" does not exist on list \"#{target}\""
-        end
-      else
-        puts "operation \"#{operation}\" not a valid operation"
+        puts 'Cancelled Adding list.'
       end
     else
-      puts "List \"#{mode}\" not found."
+      lists[input[1]] = {}
+      edit_config(conf_location, lists)
+      puts "List \"#{list}\" added."
+    end
+  elsif ['-h', '--help'].include?(mode)
+    puts help_text
+  elsif ['-rl', '--remove-list'].include?(mode)
+    if lists[list]
+      lists.delete(input[1])
+      edit_config(conf_location, lists)
+      puts "List \"#{list}\" removed."
+    else
+      puts "List \"#{list}\" does not exist."
+    end
+  elsif ['-ll', '--list-lists'].include?(mode)
+    lists.sort.to_h.each do |k, _v|
+      puts k
+    end
+  elsif ['-lc', '--list-contents'].include?(mode)
+    if lists[list]
+      print_list(lists[list])
+    else
+      puts "List \"#{list}\" does not exist."
+    end
+  elsif ['-lr', '--list-recursive'].include?(mode)
+    lists.sort.to_h.each do |k, v|
+      puts "#{k}:"
+      print_list(v, 2)
+    end
+  elsif lists[input[0]]
+    list_name = input[0]
+    list = lists[list_name]
+    operation = input[1]
+    entries = input[2, input.length]
+    case operation
+    when 'add'
+      add_entries(list_name, list, entries)
+      edit_config(conf_location, lists)
+    when 'check'
+      check_entries(list_name, list, entries)
+      edit_config(conf_location, lists)
+    when 'uncheck'
+      uncheck_entries(list_name, list, entries)
+      edit_config(conf_location, lists)
+    when 'remove'
+      remove_entries(list_name, list, entries)
+      edit_config(conf_location, lists)
+    else
+      puts "operation \"#{operation}\" not a valid operation"
     end
   else
-    puts "Config file not found, please run with -g or --generate to make a config."
+    puts "List \"#{mode}\" not found."
   end
+else
+  puts 'Config file not found, please run with -g or --generate to make a config.'
 end

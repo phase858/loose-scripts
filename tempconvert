@@ -1,0 +1,77 @@
+#!/usr/bin/env ruby
+
+# USAGE: tempconvert {temperature} {source unit} {target unit} {show source temperature(y/n, optional)} {precision(optional)}
+
+require 'clipboard'
+
+def to_celsius(temp, unit)
+  case unit
+  when 'c'
+    temp
+  when 'f'
+    (temp - 32) / 1.8
+  when 'k'
+    temp - 273.15
+  when 'ra'
+    (temp - 32 - 459.67) / 1.8
+  when 're'
+    temp * 1.25
+  when 'ro'
+    (temp - 7.5) * 1.90476190476
+  when 'd'
+    (100 - temp) * 0.6666666666666
+  when 'n'
+    temp * 100 / 33
+  else
+    'Error, invalid unit'
+  end
+end
+
+def to_output(temp, unit, prec)
+  case unit
+  when 'c'
+    format("%0.#{prec}f°C", temp)
+  when 'f'
+    format("%0.#{prec}f°F", (temp * 1.8) + 32)
+  when 'k'
+    format("%0.#{prec}f°K", temp + 273.15)
+  when 'ra'
+    format("%0.#{prec}f°Ra", ((temp * 1.8) + 32) + 459.67)
+  when 're'
+    format("%0.#{prec}f°Re", temp * 0.8)
+  when 'ro'
+    format("%0.#{prec}f°Rø", (temp * 0.525) + 7.5)
+  when 'd'
+    format("%0.#{prec}f°D", (100 - temp) * 1.5)
+  when 'n'
+    format("%0.#{prec}f°N", temp * 33 / 100)
+  else
+    'Error, invalid unit.'
+  end
+end
+
+def process(args)
+  src_temp = args[0].to_f
+  src_unit = args[1].downcase
+  trg_unit = args [2].downcase
+  show_src = false
+  show_src = true if args[3] && args[3].downcase == 'y'
+  prec = 2
+  prec = args[4].to_i if args[4]
+  generate(src_temp, src_unit, trg_unit, prec, show_src)
+end
+
+def generate(temp, src, trg, prec, show_src)
+  src_temp = to_output(to_celsius(temp, src), src, prec)
+  trg_temp = to_output(to_celsius(temp, src), trg, prec)
+  if show_src
+    out_string = "#{trg_temp}(#{src_temp})"
+    puts out_string
+    Clipboard.copy out_string
+  else
+    puts trg_temp
+    Clipboard.copy trg_temp
+  end
+end
+
+process(ARGV)

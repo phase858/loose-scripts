@@ -1,0 +1,144 @@
+#!/usr/bin/env ruby
+
+require 'shellwords'
+
+def self.binary_add(data)
+    added = []
+
+    data.split(' ').each do |v|
+        added << "0b#{v.to_i(2).to_s(2)}"
+    end
+
+    return added.join(' ')
+end
+
+def self.binary_strip(data)
+    stripped = []
+
+    data.gsub(' ', '').split('0b').each do |v|
+        stripped << format('%08d', v.gsub('0b', '').to_i(2).to_s(2)) unless v.empty?
+    end
+
+    return stripped.join(' ')
+end
+
+def self.octal_add(data)
+    added = []
+
+    data.split(' ').each do |v|
+        added << "0o#{v}"
+    end
+
+    return added.join(' ')
+end
+
+def self.octal_strip(data)
+    stripped = []
+
+    data.gsub(' ', '').split('0o').each do |v|
+        stripped << v.gsub('0o', '')
+    end
+
+    return stripped.join(' ')
+end
+
+def self.hex_add(data)
+    added = []
+
+    data.split(' ').each do |v|
+        added << "0x#{v}"
+    end
+
+    return added.join(' ')
+end
+
+def self.hex_strip(data)
+    stripped = []
+
+    data.gsub(' ', '').split('0x').each do |v|
+        stripped << v.gsub('0x', '')
+    end
+
+    return stripped.join(' ')
+end
+
+def self.strip_spaces(data)
+    return data.gsub(' ', '')
+end
+
+def self.spaces_to_newlines(data)
+    return data.gsub(' ', "\n")
+end
+
+def self.remove_quotes(data)
+    return data.gsub('\'', '').gsub('\"', '')
+end
+input = ARGV
+input << input.concat(Shellwords.split(STDIN.gets)) unless STDIN.tty?
+
+data = input.pop
+
+#puts data
+
+output = ''
+
+arguments = input.join(' ').split('-').reject { |s| s.empty? }
+
+output = ''
+
+arguments.each do |a|
+    operation, encoding = ''
+
+    split = Shellwords.shellsplit(a.strip).reject { |s| s.empty? }
+
+    operation = split[0]
+
+    encoding = split[1] if split.length >= 2
+
+    case operation
+    when 'a', 'add'
+        if split.length >= 2
+            case encoding
+            when 'binary', 'base2'
+                output = binary_add(data)
+            when 'hex', 'base16'
+                output =  hex_add(data)
+            when 'octal', 'base8'
+                output =  octal_add(data)
+            when 'lines', 'newlines'
+                output = spaces_to_newlines(data)
+            else
+                output =  'Invalid encoding choice'
+            end
+        end
+    when 'r', 'remove'
+        if split.length >= 2 
+            case encoding
+            when 'binary', 'base2'
+                output = binary_strip(data)
+            when 'hex', 'base16'
+                output =  hex_strip(data)
+            when 'octal', 'base8'
+                output =  octal_strip(data)
+            when 'space', 'spaces', 'whitespace'
+                output = strip_spaces(data)
+            when 'quote', 'quotes'
+                output = remove_quotes(data)
+            else
+                output =  'Invalid encoding choice'
+            end
+        end
+    when 'l', 'length'
+        output = data.length.to_s
+    else
+        output = 'Invalid operation'
+    end
+
+    data = output
+end
+
+if STDOUT.isatty
+    puts output.strip
+  else
+    puts output.strip
+end

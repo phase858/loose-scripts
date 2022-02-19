@@ -1,0 +1,100 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'json'
+
+def subsitute(text, font)
+  subbed = ''
+
+  text.each_char do |c|
+    subbed << (font[c] || c)
+  end
+
+  subbed
+end
+
+def list_fonts(fonts)
+  demo_text = "#{('A'..'Z').to_a.join('')}#{('a'..'z').to_a.join('')}#{('0'..'9').to_a.join('')}"
+  demo_output = []
+
+  fonts.sort.each do |k, v|
+    subbed = subsitute(demo_text, v)
+
+    demo_output << "  #{k}: #{subbed}\n"
+  end
+
+  demo_output.join
+end
+
+def apply_modifier(text, modifier)
+  out_text = ''
+
+  text.each_char do |c|
+    out_text << "#{c}#{modifier}"
+  end
+
+  out_text
+end
+
+def list_modifiers(modifiers)
+  demo_text = 'demo text'
+  demo_output = []
+
+  modifiers.sort.each do |k, v|
+    modded = apply_modifier(demo_text.gsub(' ', "\u00A0"), v)
+    demo_output << "  #{k}: #{modded}\n"
+  end
+
+  demo_output.join
+end
+
+input = []
+
+input.concat(ARGV)
+input.concat($stdin.read.split) if $stdin.tty?
+
+conf_location = File.expand_path('~/.funtext.conf')
+conf_raw = File.open(conf_location, 'r').read
+conf = JSON.parse(conf_raw)
+fonts = conf['fonts']
+modifiers = conf['modifiers']
+args_len = input.length
+
+if input[0] == '-h' || input[0] == '--help'
+  puts "Usage:
+    funtext [font] [modifer(name or none)] [reverse(true or false))] [text]"
+elsif input[0] == '-l' || input[0] == '--list'
+  puts "Fonts:
+#{list_fonts(fonts)}
+Modifiers:
+#{list_modifiers(modifiers)}"
+elsif args_len >= 4
+  font = input[0]
+  modifier = input[1]
+  reverse = input[2]
+  text = input[3]
+
+  if fonts.key?(font)
+    if modifiers.key?(modifier) || modifier == 'none'
+      if %w[true false].include?(reverse)
+        text.reverse if reverse == 'true'
+        subbed = if modifier == 'none'
+                   subsitute(text, fonts[font])
+                 else
+                   apply_modifier(subsitute(text, fonts[font]), modifiers[modifier]).gsub(' ', "\u00A0")
+                 end
+
+        system "printf \"#{subbed}\" | xsel -b"
+        puts subbed
+      else
+        puts 'Reverse value can only be "true" or "false".'
+      end
+    else
+      puts 'Invalid modifier.'
+    end
+  else
+    puts 'Invalid font choice.'
+  end
+else
+  puts 'Invalid arguments, use -h or--help to see usage.'
+end
