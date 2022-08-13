@@ -42,7 +42,7 @@ def to_output(temp, unit, prec)
   when 'ro'
     format("%0.#{prec}f°Rø", (temp * 0.525) + 7.5)
   when 'd'
-    format("%0.#{prec}f°D", (100 - temp) * 1.5)
+    format("%0.#{prec}f°De", (100 - temp) * 1.5)
   when 'n'
     format("%0.#{prec}f°N", temp * 33 / 100)
   else
